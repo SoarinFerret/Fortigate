@@ -11,7 +11,7 @@
 # John M (@x41x41x41), David S (@DavidStubley)
 # Fortigate
 
-import argparse, urllib.request, ssl, csv, string, socket
+import argparse, urllib.request, ssl, csv, string, socket, re
 from IPy import IP
 import OpenSSL.crypto as crypto
 
