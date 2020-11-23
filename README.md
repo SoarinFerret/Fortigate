@@ -19,6 +19,17 @@ Note that whilst this tool was originally multi-threaded/multi-targeted we felt 
 
 ## Usage: 
 
+### Docker
+
+```bash
+git clone https://github.com/SoarinFerret/Fortigate.git
+cd Fortigate
+docker build -t fortigate .
+docker run fortigate -i vpn.example.com
+```
+
+### Or Locally
+
 Install Requirements: `pip3 install -r requirements.txt`, then use as below.
 ```
 python3 fortigate.py -h
